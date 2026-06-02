@@ -194,7 +194,7 @@ const feedEl=document.getElementById("feed"), scrim=document.getElementById("scr
 
 let isAdmin = localStorage.getItem("zorda_admin")==="1";
 let demoMode = localStorage.getItem("zorda_demo");
-demoMode = demoMode===null ? true : demoMode==="1";   // default ON so the page looks alive
+demoMode = demoMode===null ? false : demoMode==="1";   // default OFF: show the real feed
 
 const demoPosts=[
   {id:"d3",location:"a taco truck in Austin, TX",message:"chasing the brisket",geo:"East Austin, Texas",image_url:"https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=70",created_at:new Date(Date.now()-1000*60*42).toISOString()},
