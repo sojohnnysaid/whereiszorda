@@ -98,7 +98,7 @@
   .ctext{color:var(--ink);}
   .ctime{color:var(--ink-soft);font-size:11.5px;font-weight:600;}
   .commented{font-size:13px;font-weight:700;color:var(--teal);padding:4px 2px;}
-  .cdel{border:none;background:none;cursor:pointer;padding:2px;line-height:0;color:var(--ink-soft);opacity:.5;display:inline-flex;align-items:center;transition:color .12s,opacity .12s,transform .12s;}
+  .cdel{border:none;background:none;cursor:pointer;padding:2px;line-height:0;color:var(--ink-soft);opacity:.5;display:inline-flex;align-items:center;position:relative;top:3px;transition:color .12s,opacity .12s,transform .12s;}
   .cdel:active{opacity:1;color:var(--tomato-dark);transform:scale(.88);}
   .cempty{font-size:13px;color:var(--ink-soft);font-style:italic;margin-bottom:10px;}
   .addc{display:flex;flex-direction:column;gap:8px;}
@@ -477,6 +477,7 @@ function wireEngagement(){
         list.insertAdjacentHTML("beforeend",commentHTML(c));
         const cc=wrap.closest(".post").querySelector(".ccount"); if(cc) cc.textContent=(parseInt(cc.textContent||"0",10)+1);
         const addc=wrap.querySelector(".addc"); if(addc) addc.remove();
+        wireEngagement();
       }catch(e){
         const dup=(e&&(e.code==="23505"||/duplicate|unique/i.test(e.message||"")));
         if(dup){
