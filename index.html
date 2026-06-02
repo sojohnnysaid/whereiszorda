@@ -116,12 +116,6 @@
   .empty{text-align:center;padding:50px 20px;color:var(--ink-soft);}
   .empty .big{font-family:"Bricolage Grotesque";font-size:26px;color:var(--ink);margin-bottom:8px;}
 
-  .fab{position:fixed;z-index:40;right:max(18px,calc(50% - 280px + 18px));bottom:24px;width:64px;height:64px;
-    border-radius:20px;border:none;cursor:pointer;background:var(--tomato);color:#fff;font-size:26px;
-    box-shadow:0 8px 22px rgba(255,84,54,.5),0 2px 0 var(--tomato-dark) inset;display:flex;align-items:center;
-    justify-content:center;transition:transform .15s ease;}
-  .fab:active{transform:scale(.9);}
-
   .scrim{position:fixed;inset:0;z-index:50;background:rgba(33,28,22,.55);backdrop-filter:blur(3px);
     display:none;align-items:flex-end;justify-content:center;}
   .scrim.show{display:flex;}
@@ -185,6 +179,7 @@
 <div class="adminbar" id="adminbar">
   <span class="tag">📡 Zorda HQ</span>
   <div class="right">
+    <button id="newPostBtn">📸 New</button>
     <button id="logoutBtn">Log out</button>
   </div>
 </div>
@@ -202,8 +197,6 @@
   <footer>Built with love &amp; mild suspicion · Where Is Zorda?<br><a class="loginlink" id="loginLink">Zorda HQ login →</a></footer>
 </div>
 
-<button class="fab" id="fab" aria-label="New sighting">📸</button>
-
 <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
 
 <script type="module">
@@ -216,7 +209,7 @@ const CONFIGURED = cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes("YOUR_") &&
 let sb = CONFIGURED ? createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
 
 const feedEl=document.getElementById("feed"), scrim=document.getElementById("scrim"),
-  sheet=document.getElementById("sheet"), fab=document.getElementById("fab"),
+  sheet=document.getElementById("sheet"),
   adminbar=document.getElementById("adminbar"), lastSeen=document.getElementById("lastSeen"),
   adminNote=document.getElementById("adminNote");
 
@@ -557,7 +550,7 @@ function updateAuthUI(){
   }else{ adminNote.classList.remove("show"); }
 }
 document.getElementById("logoutBtn").onclick=()=>{ isAdmin=false; localStorage.removeItem("zorda_admin"); updateAuthUI(); render(); };
-fab.onclick=()=> isAdmin ? composerView() : loginView();
+document.getElementById("newPostBtn").onclick=composerView;
 document.getElementById("loginLink").onclick=loginView;
 
 updateAuthUI();
