@@ -156,7 +156,6 @@
 <div class="adminbar" id="adminbar">
   <span class="tag">📡 Zorda HQ</span>
   <div class="right">
-    <span class="switch" id="demoSwitch"><span class="track"><span class="knob"></span></span> Demo</span>
     <button id="logoutBtn">Log out</button>
   </div>
 </div>
@@ -190,17 +189,9 @@ let sb = CONFIGURED ? createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : nu
 const feedEl=document.getElementById("feed"), scrim=document.getElementById("scrim"),
   sheet=document.getElementById("sheet"), fab=document.getElementById("fab"),
   adminbar=document.getElementById("adminbar"), lastSeen=document.getElementById("lastSeen"),
-  adminNote=document.getElementById("adminNote"), demoSwitch=document.getElementById("demoSwitch");
+  adminNote=document.getElementById("adminNote");
 
 let isAdmin = localStorage.getItem("zorda_admin")==="1";
-let demoMode = localStorage.getItem("zorda_demo");
-demoMode = demoMode===null ? false : demoMode==="1";   // default OFF: show the real feed
-
-const demoPosts=[
-  {id:"d3",location:"a taco truck in Austin, TX",message:"chasing the brisket",geo:"East Austin, Texas",image_url:"https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=70",created_at:new Date(Date.now()-1000*60*42).toISOString()},
-  {id:"d2",location:"somewhere over the Atlantic",message:"window seat, no regrets",geo:"",image_url:"https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=70",created_at:new Date(Date.now()-1000*60*60*5).toISOString()},
-  {id:"d1",location:"his mom's couch, allegedly",message:"recharging",geo:"Springfield, Illinois",image_url:"https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=70",created_at:new Date(Date.now()-1000*60*60*28).toISOString()},
-];
 
 function timeAgo(iso){const s=Math.floor((Date.now()-new Date(iso))/1000);
   if(s<60)return"just now";const m=(s/60)|0;if(m<60)return m+"m ago";
@@ -213,7 +204,6 @@ function localPosts(){try{return JSON.parse(localStorage.getItem("zorda_posts")|
 function saveLocal(arr){localStorage.setItem("zorda_posts",JSON.stringify(arr));}
 
 async function getPosts(){
-  if(demoMode) return demoPosts;
   if(CONFIGURED){
     const {data,error}=await sb.from("posts").select("*").order("created_at",{ascending:false}).limit(100);
     if(error){console.error(error);return[];}
@@ -252,7 +242,7 @@ async function render(){
     return;
   }
   lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
-  const canDelete = isAdmin && !demoMode;
+  const canDelete = isAdmin;
   feedEl.innerHTML=posts.map(p=>`
     <article class="post">
       <span class="pin"></span>
@@ -380,7 +370,6 @@ function composerView(){
     const btn=document.getElementById("post"); btn.disabled=true; err.textContent="Posting…";
     try{
       await addPost({location,message,geo:autoGeo,dataUrl:captured});
-      if(demoMode){ demoMode=false; localStorage.setItem("zorda_demo","0"); updateAuthUI(); } // first real post turns demo off
       closeSheet(); render();
     }catch(e){ err.textContent=e.message||"Something went wrong."; btn.disabled=false; }
   };
@@ -390,14 +379,12 @@ function composerView(){
 function updateAuthUI(){
   document.body.classList.toggle("admin",isAdmin);
   adminbar.classList.toggle("show",isAdmin);
-  demoSwitch.classList.toggle("on",demoMode);
   const ll=document.getElementById("loginLink"); if(ll) ll.style.display=isAdmin?"none":"inline-block";
   if(isAdmin && !CONFIGURED){
     adminNote.classList.add("show");
     adminNote.innerHTML="📱 <b>This device only.</b> Posts are saved just on this phone until Supabase is connected. Add your keys in <b>index.html</b> to make the feed shared across everyone.";
   }else{ adminNote.classList.remove("show"); }
 }
-demoSwitch.onclick=()=>{ demoMode=!demoMode; localStorage.setItem("zorda_demo",demoMode?"1":"0"); updateAuthUI(); render(); };
 document.getElementById("logoutBtn").onclick=()=>{ isAdmin=false; localStorage.removeItem("zorda_admin"); updateAuthUI(); render(); };
 fab.onclick=()=> isAdmin ? composerView() : loginView();
 document.getElementById("loginLink").onclick=loginView;
