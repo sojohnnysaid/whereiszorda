@@ -17,7 +17,7 @@
   // ---- SUPABASE (optional). Fill these in to make the feed SHARED ----
   // Until filled, posts are saved on this device only (localStorage).
   window.ZORDA_CONFIG = {
-    SUPABASE_URL: "YOUR_SUPABASE_URL_HERE",
+    SUPABASE_URL: "https://apgsglfgfbfcelojrnhy.supabase.co",
     SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY_HERE"
   };
 </script>
@@ -79,6 +79,7 @@
   .caption .at{color:var(--ink-soft);font-weight:600;font-size:15px;display:block;margin-bottom:2px;
     font-family:"DM Sans";text-transform:uppercase;letter-spacing:.12em;}
   .caption .loc{color:var(--tomato-dark);}
+  .geo-sub{font-size:12px;color:var(--ink-soft);font-weight:600;margin:5px 4px 0;display:flex;align-items:center;gap:4px;}
   .meta{display:flex;justify-content:space-between;align-items:center;margin:12px 4px 0;
     font-size:13px;color:var(--ink-soft);font-weight:500;}
   .meta .del{border:none;background:none;color:var(--tomato-dark);font-weight:700;cursor:pointer;font-size:13px;}
@@ -195,9 +196,9 @@ let demoMode = localStorage.getItem("zorda_demo");
 demoMode = demoMode===null ? true : demoMode==="1";   // default ON so the page looks alive
 
 const demoPosts=[
-  {id:"d3",location:"a taco truck in Austin, TX",message:"chasing the brisket",image_url:"https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=70",created_at:new Date(Date.now()-1000*60*42).toISOString()},
-  {id:"d2",location:"somewhere over the Atlantic",message:"window seat, no regrets",image_url:"https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=70",created_at:new Date(Date.now()-1000*60*60*5).toISOString()},
-  {id:"d1",location:"his mom's couch, allegedly",message:"recharging",image_url:"https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=70",created_at:new Date(Date.now()-1000*60*60*28).toISOString()},
+  {id:"d3",location:"a taco truck in Austin, TX",message:"chasing the brisket",geo:"East Austin, Texas",image_url:"https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=70",created_at:new Date(Date.now()-1000*60*42).toISOString()},
+  {id:"d2",location:"somewhere over the Atlantic",message:"window seat, no regrets",geo:"",image_url:"https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=70",created_at:new Date(Date.now()-1000*60*60*5).toISOString()},
+  {id:"d1",location:"his mom's couch, allegedly",message:"recharging",geo:"Springfield, Illinois",image_url:"https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=70",created_at:new Date(Date.now()-1000*60*60*28).toISOString()},
 ];
 
 function timeAgo(iso){const s=Math.floor((Date.now()-new Date(iso))/1000);
@@ -220,18 +221,18 @@ async function getPosts(){
   return localPosts().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 }
 
-async function addPost({location,message,dataUrl}){
+async function addPost({location,message,geo,dataUrl}){
   if(CONFIGURED){
     const blob=await (await fetch(dataUrl)).blob();
     const path=Date.now()+".jpg";
     const up=await sb.storage.from("selfies").upload(path,blob,{cacheControl:"3600",contentType:"image/jpeg"});
     if(up.error) throw up.error;
     const {data:{publicUrl}}=sb.storage.from("selfies").getPublicUrl(path);
-    const ins=await sb.from("posts").insert({location,message,image_url:publicUrl});
+    const ins=await sb.from("posts").insert({location,message,geo,image_url:publicUrl});
     if(ins.error) throw ins.error;
   }else{
     const arr=localPosts();
-    arr.push({id:"l"+Date.now(),location,message,image_url:dataUrl,created_at:new Date().toISOString()});
+    arr.push({id:"l"+Date.now(),location,message,geo,image_url:dataUrl,created_at:new Date().toISOString()});
     saveLocal(arr);
   }
 }
@@ -256,6 +257,7 @@ async function render(){
       <span class="pin"></span>
       <div class="photo-wrap"><img class="photo" src="${esc(p.image_url)}" alt="Zorda sighting" loading="lazy"></div>
       <div class="caption"><span class="at">Zorda is at</span><span class="loc">${esc(p.location)}</span></div>
+      ${p.geo?`<div class="geo-sub">📍 ${esc(p.geo)}</div>`:""}
       ${p.message?`<div class="meta"><span>“${esc(p.message)}”</span></div>`:""}
       <div class="meta"><span>🕓 ${timeAgo(p.created_at)}</span>${canDelete?`<button class="del" data-id="${esc(p.id)}">delete</button>`:""}</div>
     </article>`).join("");
@@ -305,7 +307,6 @@ function composerView(){
 
     <label>Zorda is at…</label>
     <input type="text" id="loc" placeholder="e.g. a beach in Portugal" autocomplete="off">
-    <button class="btn geo" id="useLoc">📍 Use my location</button>
 
     <label>What's he up to? (optional)</label>
     <input type="text" id="msg" placeholder="e.g. eating his third pastry" autocomplete="off">
@@ -314,7 +315,18 @@ function composerView(){
     <button class="btn" id="post">Post sighting</button>
     <button class="btn ghost" id="cancel">Cancel</button>`);
 
-  let captured=null;
+  let captured=null, autoGeo="";
+  // quietly capture the phone's general location in the background
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const {latitude:la,longitude:lo}=pos.coords;
+      try{
+        const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${la}&longitude=${lo}&localityLanguage=en`);
+        const j=await r.json();
+        autoGeo=[j.city||j.locality,j.principalSubdivision].filter(Boolean).join(", ")||`${la.toFixed(2)}, ${lo.toFixed(2)}`;
+      }catch{ autoGeo=`${la.toFixed(2)}, ${lo.toFixed(2)}`; }
+    }, ()=>{}, {enableHighAccuracy:false,timeout:8000,maximumAge:60000});
+  }
   const camStart=document.getElementById("camStart"), cam=document.getElementById("cam"),
     preview=document.getElementById("preview"), captureBtn=document.getElementById("capture"),
     switchBtn=document.getElementById("switchCam"), fileInput=document.getElementById("file"),
@@ -358,19 +370,6 @@ function composerView(){
       camStart.style.display="flex"; camStart.innerHTML="<span>🔁</span>Retake"; URL.revokeObjectURL(img.src); };
     img.src=URL.createObjectURL(f);
   };
-  document.getElementById("useLoc").onclick=()=>{
-    err.textContent="Finding you…";
-    if(!navigator.geolocation){err.textContent="Geolocation not supported.";return;}
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      const {latitude:la,longitude:lo}=pos.coords;
-      try{
-        const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${la}&longitude=${lo}&localityLanguage=en`);
-        const j=await r.json();
-        const parts=[j.city||j.locality,j.principalSubdivision,j.countryName].filter(Boolean);
-        document.getElementById("loc").value=parts.join(", ")||`${la.toFixed(2)}, ${lo.toFixed(2)}`; err.textContent="";
-      }catch{ document.getElementById("loc").value=`${la.toFixed(3)}, ${lo.toFixed(3)}`; err.textContent=""; }
-    }, e=>{err.textContent="Couldn't get location: "+e.message;}, {enableHighAccuracy:false,timeout:8000});
-  };
   document.getElementById("cancel").onclick=closeSheet;
   document.getElementById("post").onclick=async()=>{
     const location=document.getElementById("loc").value.trim();
@@ -379,7 +378,7 @@ function composerView(){
     if(!location){err.textContent="Where is he, though?";return;}
     const btn=document.getElementById("post"); btn.disabled=true; err.textContent="Posting…";
     try{
-      await addPost({location,message,dataUrl:captured});
+      await addPost({location,message,geo:autoGeo,dataUrl:captured});
       if(demoMode){ demoMode=false; localStorage.setItem("zorda_demo","0"); updateAuthUI(); } // first real post turns demo off
       closeSheet(); render();
     }catch(e){ err.textContent=e.message||"Something went wrong."; btn.disabled=false; }
