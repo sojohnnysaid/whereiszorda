@@ -18,7 +18,7 @@
   // Until filled, posts are saved on this device only (localStorage).
   window.ZORDA_CONFIG = {
     SUPABASE_URL: "https://apgsglfgfbfcelojrnhy.supabase.co",
-    SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY_HERE"
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwZ3NnbGZnZmJmY2Vsb2pybmh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTk3MDAsImV4cCI6MjA5NTkzNTcwMH0.3d0Fi1LuCq0ZnPhONyqhBCKIZtCCL1LQbJXed3KpFRw"
   };
 </script>
 
@@ -226,9 +226,9 @@ async function addPost({location,message,geo,dataUrl}){
   if(CONFIGURED){
     const blob=await (await fetch(dataUrl)).blob();
     const path=Date.now()+".jpg";
-    const up=await sb.storage.from("selfies").upload(path,blob,{cacheControl:"3600",contentType:"image/jpeg"});
+    const up=await sb.storage.from("whereiszorda").upload(path,blob,{cacheControl:"3600",contentType:"image/jpeg"});
     if(up.error) throw up.error;
-    const {data:{publicUrl}}=sb.storage.from("selfies").getPublicUrl(path);
+    const {data:{publicUrl}}=sb.storage.from("whereiszorda").getPublicUrl(path);
     const ins=await sb.from("posts").insert({location,message,geo,image_url:publicUrl});
     if(ins.error) throw ins.error;
   }else{
