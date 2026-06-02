@@ -81,6 +81,32 @@
     font-family:"DM Sans";text-transform:uppercase;letter-spacing:.12em;}
   .caption .loc{color:var(--tomato-dark);}
   .geo-sub{font-size:12px;color:var(--ink-soft);font-weight:600;margin:5px 4px 0;display:flex;align-items:center;gap:4px;}
+  .actions{display:flex;gap:10px;margin:14px 4px 0;}
+  .actions button{font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border:1.5px solid #e0d0ac;
+    background:var(--paper);color:var(--ink-soft);border-radius:999px;padding:7px 14px;display:inline-flex;
+    align-items:center;gap:6px;transition:transform .12s,background .15s,color .15s,border-color .15s;}
+  .actions button:active{transform:scale(.92);}
+  .heart.on{background:rgba(255,84,54,.12);color:var(--tomato-dark);border-color:rgba(255,84,54,.45);}
+  .heart.pop{transform:scale(1.18);}
+  .cwrap{margin:12px 4px 0;border-top:1.5px dashed #e0d0ac;padding-top:12px;}
+  .clist{display:flex;flex-direction:column;gap:9px;margin-bottom:10px;}
+  .citem{font-size:14px;line-height:1.45;color:var(--ink);}
+  .citem b{color:var(--tomato-dark);font-weight:700;margin-right:3px;}
+  .ctime{color:var(--ink-soft);font-size:11.5px;font-weight:600;margin-left:5px;}
+  .cempty{font-size:13px;color:var(--ink-soft);font-style:italic;margin-bottom:10px;}
+  .addc{display:flex;flex-direction:column;gap:8px;}
+  .addc input{width:100%;padding:11px 13px;font-size:15px;font-family:inherit;color:var(--ink);
+    background:var(--card);border:2px solid #d8c8a8;border-radius:11px;outline:none;}
+  .addc input:focus{border-color:var(--tomato);}
+  .addrow{display:flex;gap:8px;}
+  .addrow .cbody{flex:1;}
+  .csend{border:none;background:var(--tomato);color:#fff;font-weight:700;font-family:inherit;font-size:15px;
+    border-radius:11px;padding:0 18px;cursor:pointer;box-shadow:0 3px 0 var(--tomato-dark);white-space:nowrap;}
+  .csend:active{transform:translateY(2px);box-shadow:0 1px 0 var(--tomato-dark);}
+  .likedby{font-size:12.5px;color:var(--tomato-dark);font-weight:700;margin:9px 4px 0;}
+  .asname{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-bottom:2px;}
+  .asname .whoami{color:var(--ink);}
+  .changename{border:none;background:none;color:var(--teal);font-weight:700;cursor:pointer;font-size:12.5px;text-decoration:underline;padding:2px 4px;}
   .meta{display:flex;justify-content:space-between;align-items:center;margin:12px 4px 0;
     font-size:13px;color:var(--ink-soft);font-weight:500;}
   .meta .del{border:none;background:none;color:var(--tomato-dark);font-weight:700;cursor:pointer;font-size:13px;}
@@ -233,6 +259,85 @@ async function deletePost(id){
   render();
 }
 
+// ---------- identity (remembered name, no real login) ----------
+function deviceId(){let d=localStorage.getItem("zorda_device");
+  if(!d){d="dev_"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("zorda_device",d);}return d;}
+function getName(){return (localStorage.getItem("zorda_name")||"").trim();}
+function refreshName(){document.querySelectorAll(".whoami").forEach(el=>el.textContent=getName()||"someone");}
+function ensureName(force){
+  return new Promise(resolve=>{
+    const existing=getName();
+    if(existing && !force){resolve(existing);return;}
+    openSheet(`
+      <h2>What should we call you?</h2>
+      <p class="hint">Your hearts and comments get signed with this. Saved on your device — you won't need to enter it again.</p>
+      <label>Your name</label>
+      <input type="text" id="nm" maxlength="40" autocomplete="name" placeholder="e.g. Alex" value="${esc(existing)}">
+      <div class="err" id="nmerr"></div>
+      <button class="btn" id="nmsave">Save</button>
+      ${existing?'<button class="btn ghost" id="nmcancel">Cancel</button>':''}`);
+    const input=document.getElementById("nm"); setTimeout(()=>input.focus(),60);
+    input.onkeydown=e=>{if(e.key==="Enter")document.getElementById("nmsave").click();};
+    document.getElementById("nmsave").onclick=()=>{
+      const v=input.value.trim();
+      if(!v){document.getElementById("nmerr").textContent="Please enter a name.";return;}
+      localStorage.setItem("zorda_name",v); closeSheet(); refreshName(); resolve(v);
+    };
+    const cx=document.getElementById("nmcancel"); if(cx) cx.onclick=()=>{closeSheet();resolve(existing||null);};
+  });
+}
+function likedByText(names,count){
+  names=(names||[]).filter(Boolean);
+  if(!names.length) return count+(count===1?" heart":" hearts");
+  if(names.length===1) return "❤ "+names[0];
+  if(names.length===2) return "❤ "+names[0]+" & "+names[1];
+  return "❤ "+names[0]+", "+names[1]+" & "+(names.length-2)+" more";
+}
+
+// ---------- hearts & comments (public; signed with your name) ----------
+
+async function getEngagement(ids){
+  const res={hearts:{},hearted:{},heartNames:{},comments:{}};
+  ids.forEach(id=>{res.hearts[id]=0;res.hearted[id]=false;res.heartNames[id]=[];res.comments[id]=[];});
+  if(!ids.length) return res;
+  if(CONFIGURED){
+    const dev=deviceId();
+    const [{data:h},{data:c}]=await Promise.all([
+      sb.from("hearts").select("post_id,device_id,name").in("post_id",ids),
+      sb.from("comments").select("*").in("post_id",ids).order("created_at",{ascending:true})
+    ]);
+    (h||[]).forEach(r=>{res.hearts[r.post_id]=(res.hearts[r.post_id]||0)+1; if(r.name)res.heartNames[r.post_id].push(r.name); if(r.device_id===dev)res.hearted[r.post_id]=true;});
+    (c||[]).forEach(r=>{(res.comments[r.post_id]=res.comments[r.post_id]||[]).push(r);});
+  }else{
+    const hc=JSON.parse(localStorage.getItem("zorda_hearts")||"{}");
+    const hd=JSON.parse(localStorage.getItem("zorda_hearted")||"{}");
+    const cm=JSON.parse(localStorage.getItem("zorda_comments")||"{}");
+    ids.forEach(id=>{res.hearts[id]=hc[id]||0;res.hearted[id]=!!hd[id];res.comments[id]=cm[id]||[];});
+  }
+  return res;
+}
+async function toggleHeart(id,on,name){
+  const dev=deviceId();
+  if(CONFIGURED){
+    if(on) await sb.from("hearts").insert({post_id:id,device_id:dev,name:name||null});
+    else await sb.from("hearts").delete().eq("post_id",id).eq("device_id",dev);
+  }else{
+    const hc=JSON.parse(localStorage.getItem("zorda_hearts")||"{}"),hd=JSON.parse(localStorage.getItem("zorda_hearted")||"{}");
+    if(on){hc[id]=(hc[id]||0)+1;hd[id]=true;}else{hc[id]=Math.max(0,(hc[id]||0)-1);delete hd[id];}
+    localStorage.setItem("zorda_hearts",JSON.stringify(hc));localStorage.setItem("zorda_hearted",JSON.stringify(hd));
+  }
+}
+async function addComment(id,name,body){
+  if(CONFIGURED){
+    const {data,error}=await sb.from("comments").insert({post_id:id,name:name||null,body}).select();
+    if(error) throw error; return data[0];
+  }
+  const cm=JSON.parse(localStorage.getItem("zorda_comments")||"{}");
+  const c={id:"c"+Date.now(),post_id:id,name:name||null,body,created_at:new Date().toISOString()};
+  (cm[id]=cm[id]||[]).push(c); localStorage.setItem("zorda_comments",JSON.stringify(cm)); return c;
+}
+function commentHTML(c){return `<div class="citem"><b>${esc(c.name||"Anonymous")}</b>${esc(c.body)}<span class="ctime">${timeAgo(c.created_at)}</span></div>`;}
+
 // ---------- render ----------
 async function render(){
   const posts=await getPosts();
@@ -242,8 +347,11 @@ async function render(){
     return;
   }
   lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
-  const canDelete = isAdmin;
-  feedEl.innerHTML=posts.map(p=>`
+  const eng=await getEngagement(posts.map(p=>p.id));
+  const canDelete=isAdmin;
+  feedEl.innerHTML=posts.map(p=>{
+    const hc=eng.hearts[p.id]||0, hd=eng.hearted[p.id], cs=eng.comments[p.id]||[];
+    return `
     <article class="post">
       <span class="pin"></span>
       <div class="photo-wrap"><img class="photo" src="${esc(p.image_url)}" alt="Zorda sighting" loading="lazy"></div>
@@ -251,8 +359,56 @@ async function render(){
       ${p.geo?`<div class="geo-sub">📍 ${esc(p.geo)}</div>`:""}
       ${p.message?`<div class="meta"><span>“${esc(p.message)}”</span></div>`:""}
       <div class="meta"><span>🕓 ${timeAgo(p.created_at)}</span>${canDelete?`<button class="del" data-id="${esc(p.id)}">delete</button>`:""}</div>
-    </article>`).join("");
+      <div class="actions">
+        <button class="heart${hd?" on":""}" data-id="${esc(p.id)}">♥ <span class="hcount">${hc}</span></button>
+        <button class="cbtn" data-id="${esc(p.id)}">💬 <span class="ccount">${cs.length}</span></button>
+      </div>
+      ${hc?`<div class="likedby">${likedByText(eng.heartNames[p.id],hc)}</div>`:""}
+      <div class="cwrap" id="cw-${esc(p.id)}" hidden>
+        <div class="clist" id="cl-${esc(p.id)}">${cs.length?cs.map(commentHTML).join(""):'<div class="cempty">No comments yet — say hi 👋</div>'}</div>
+        <div class="addc">
+          <div class="asname">Posting as <b class="whoami">${esc(getName()||"someone")}</b> <button class="changename" type="button">change</button></div>
+          <div class="addrow"><input class="cbody" placeholder="Add a comment…" maxlength="300" autocomplete="off"><button class="csend" data-id="${esc(p.id)}">Post</button></div>
+        </div>
+      </div>
+    </article>`;}).join("");
+  wireEngagement();
   if(canDelete) feedEl.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("Delete this sighting?"))deletePost(b.dataset.id);});
+}
+
+function wireEngagement(){
+  feedEl.querySelectorAll(".heart").forEach(b=>{
+    b.onclick=async()=>{
+      const id=b.dataset.id, on=!b.classList.contains("on"), span=b.querySelector(".hcount");
+      let name=getName();
+      if(on && !name){ name=await ensureName(); if(!name) return; }
+      const prev=parseInt(span.textContent||"0",10);
+      b.classList.toggle("on",on); span.textContent=Math.max(0,prev+(on?1:-1));
+      b.classList.add("pop"); setTimeout(()=>b.classList.remove("pop"),250);
+      try{ await toggleHeart(id,on,name); }catch(e){ b.classList.toggle("on",!on); span.textContent=prev; }
+    };
+  });
+  feedEl.querySelectorAll(".cbtn").forEach(b=>{
+    b.onclick=()=>{ const w=document.getElementById("cw-"+b.dataset.id); if(w) w.hidden=!w.hidden; };
+  });
+  feedEl.querySelectorAll(".changename").forEach(b=>{ b.onclick=()=>ensureName(true); });
+  feedEl.querySelectorAll(".csend").forEach(b=>{
+    b.onclick=async()=>{
+      const id=b.dataset.id, wrap=document.getElementById("cw-"+id), bodyEl=wrap.querySelector(".cbody");
+      const body=bodyEl.value.trim(); if(!body) return;
+      let name=getName(); if(!name){ name=await ensureName(); if(!name) return; }
+      b.disabled=true;
+      try{
+        const c=await addComment(id,name,body);
+        const list=document.getElementById("cl-"+id);
+        const empty=list.querySelector(".cempty"); if(empty) empty.remove();
+        list.insertAdjacentHTML("beforeend",commentHTML(c));
+        bodyEl.value="";
+        const cc=wrap.closest(".post").querySelector(".ccount"); if(cc) cc.textContent=(parseInt(cc.textContent||"0",10)+1);
+      }catch(e){ alert("Couldn't post comment: "+(e.message||e)); }
+      b.disabled=false;
+    };
+  });
 }
 
 // ---------- modal ----------
