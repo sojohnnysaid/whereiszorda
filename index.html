@@ -107,6 +107,9 @@
   .asname{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-bottom:2px;}
   .asname .whoami{color:var(--ink);}
   .changename{border:none;background:none;color:var(--teal);font-weight:700;cursor:pointer;font-size:12.5px;text-decoration:underline;padding:2px 4px;}
+  .others{border:none;background:none;color:var(--tomato-dark);font-weight:700;cursor:pointer;font-size:12.5px;text-decoration:underline;padding:0;font-family:inherit;}
+  .namelist{display:flex;flex-direction:column;gap:9px;margin:8px 0 4px;max-height:55vh;overflow-y:auto;}
+  .nameitem{font-size:16px;font-weight:600;color:var(--ink);}
   .meta{display:flex;justify-content:space-between;align-items:center;margin:12px 4px 0;
     font-size:13px;color:var(--ink-soft);font-weight:500;}
   .meta .del{border:none;background:none;color:var(--tomato-dark);font-weight:700;cursor:pointer;font-size:13px;}
@@ -218,6 +221,7 @@ const feedEl=document.getElementById("feed"), scrim=document.getElementById("scr
   adminNote=document.getElementById("adminNote");
 
 let isAdmin = localStorage.getItem("zorda_admin")==="1";
+let heartNamesById = {};
 
 function timeAgo(iso){const s=Math.floor((Date.now()-new Date(iso))/1000);
   if(s<60)return"just now";const m=(s/60)|0;if(m<60)return m+"m ago";
@@ -286,12 +290,21 @@ function ensureName(force){
     const cx=document.getElementById("nmcancel"); if(cx) cx.onclick=()=>{closeSheet();resolve(existing||null);};
   });
 }
-function likedByText(names,count){
+function likedByHTML(names,count,id){
   names=(names||[]).filter(Boolean);
   if(!names.length) return count+(count===1?" heart":" hearts");
-  if(names.length===1) return "❤ "+names[0];
-  if(names.length===2) return "❤ "+names[0]+" & "+names[1];
-  return "❤ "+names[0]+", "+names[1]+" & "+(names.length-2)+" more";
+  if(names.length===1) return "❤ "+esc(names[0]);
+  if(names.length===2) return "❤ "+esc(names[0])+" & "+esc(names[1]);
+  return "❤ "+esc(names[0])+", "+esc(names[1])+' & <button class="others" data-id="'+esc(id)+'">'+(names.length-2)+" others</button>";
+}
+function openHeartList(id){
+  const names=(heartNamesById[id]||[]).filter(Boolean);
+  openSheet(`
+    <h2>Hearts ♥</h2>
+    <p class="hint">${names.length} ${names.length===1?"person":"people"} hearted this sighting</p>
+    <div class="namelist">${names.map(n=>`<div class="nameitem">❤ ${esc(n)}</div>`).join("")||'<div class="cempty">No names yet</div>'}</div>
+    <button class="btn ghost" id="closeNames">Close</button>`);
+  document.getElementById("closeNames").onclick=closeSheet;
 }
 
 // ---------- hearts & comments (public; signed with your name) ----------
@@ -348,6 +361,7 @@ async function render(){
   }
   lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
   const eng=await getEngagement(posts.map(p=>p.id));
+  heartNamesById=eng.heartNames;
   const canDelete=isAdmin;
   feedEl.innerHTML=posts.map(p=>{
     const hc=eng.hearts[p.id]||0, hd=eng.hearted[p.id], cs=eng.comments[p.id]||[];
@@ -363,7 +377,7 @@ async function render(){
         <button class="heart${hd?" on":""}" data-id="${esc(p.id)}">♥ <span class="hcount">${hc}</span></button>
         <button class="cbtn" data-id="${esc(p.id)}">💬 <span class="ccount">${cs.length}</span></button>
       </div>
-      ${hc?`<div class="likedby">${likedByText(eng.heartNames[p.id],hc)}</div>`:""}
+      ${hc?`<div class="likedby">${likedByHTML(eng.heartNames[p.id],hc,p.id)}</div>`:""}
       <div class="cwrap" id="cw-${esc(p.id)}" hidden>
         <div class="clist" id="cl-${esc(p.id)}">${cs.length?cs.map(commentHTML).join(""):'<div class="cempty">No comments yet — say hi 👋</div>'}</div>
         <div class="addc">
@@ -392,6 +406,7 @@ function wireEngagement(){
     b.onclick=()=>{ const w=document.getElementById("cw-"+b.dataset.id); if(w) w.hidden=!w.hidden; };
   });
   feedEl.querySelectorAll(".changename").forEach(b=>{ b.onclick=()=>ensureName(true); });
+  feedEl.querySelectorAll(".others").forEach(b=>{ b.onclick=()=>openHeartList(b.dataset.id); });
   feedEl.querySelectorAll(".csend").forEach(b=>{
     b.onclick=async()=>{
       const id=b.dataset.id, wrap=document.getElementById("cw-"+id), bodyEl=wrap.querySelector(".cbody");
