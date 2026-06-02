@@ -382,7 +382,7 @@ function postHTML(p,eng,canDelete){
       ${hc?`<div class="likedby">${likedByHTML(eng.heartNames[p.id],hc,p.id)}</div>`:""}
       <div class="cwrap" id="cw-${esc(p.id)}" hidden>
         <div class="clist" id="cl-${esc(p.id)}">${cs.length?cs.map(commentHTML).join(""):'<div class="cempty">No comments yet — say hi 👋</div>'}</div>
-        ${eng.commented[p.id]?`<div class="commented">✓ You've left a comment on this one</div>`:`<div class="addc">
+        ${eng.commented[p.id]?``:`<div class="addc">
           <div class="asname">Posting as <b class="whoami">${esc(getName()||"someone")}</b> <button class="changename" type="button">change</button></div>
           <div class="addrow"><input class="cbody" placeholder="Add a comment…" maxlength="300" autocomplete="off"><button class="csend" data-id="${esc(p.id)}">Post</button></div>
         </div>`}
@@ -451,11 +451,11 @@ function wireEngagement(){
         const empty=list.querySelector(".cempty"); if(empty) empty.remove();
         list.insertAdjacentHTML("beforeend",commentHTML(c));
         const cc=wrap.closest(".post").querySelector(".ccount"); if(cc) cc.textContent=(parseInt(cc.textContent||"0",10)+1);
-        const addc=wrap.querySelector(".addc"); if(addc) addc.outerHTML=`<div class="commented">✓ You've left a comment on this one</div>`;
+        const addc=wrap.querySelector(".addc"); if(addc) addc.remove();
       }catch(e){
         const dup=(e&&(e.code==="23505"||/duplicate|unique/i.test(e.message||"")));
         if(dup){
-          const addc=wrap.querySelector(".addc"); if(addc) addc.outerHTML=`<div class="commented">✓ You've already commented on this one</div>`;
+          const addc=wrap.querySelector(".addc"); if(addc) addc.remove();
         }else{ alert("Couldn't post comment: "+(e.message||e)); b.disabled=false; }
       }
     };
