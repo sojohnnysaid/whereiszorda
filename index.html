@@ -57,9 +57,10 @@
     font-size:clamp(48px,15vw,82px);margin:14px 0 6px;}
   h1 .is{color:var(--tomato);font-style:italic;display:inline-block;transform:rotate(-3deg);}
   .sub{font-size:15px;color:var(--ink-soft);max-width:330px;margin:0 auto;}
-  .lastseen{margin:18px auto 0;display:inline-flex;align-items:center;gap:8px;font-size:13px;
-    font-weight:600;color:var(--teal);background:rgba(31,122,110,.1);padding:7px 14px;border-radius:999px;
-    border:1.5px dashed rgba(31,122,110,.4);}
+  .lastseen{display:inline-block;margin:18px auto 0;max-width:100%;font-size:13px;font-weight:600;
+    color:var(--teal);background:rgba(31,122,110,.1);padding:9px 16px;border-radius:16px;line-height:1.5;
+    text-align:center;white-space:normal;overflow-wrap:anywhere;border:1.5px dashed rgba(31,122,110,.45);}
+  .lastseen b{color:var(--ink);font-weight:700;}
 
   .feed{display:flex;flex-direction:column;gap:30px;margin-top:26px;}
   .post{background:var(--card);border-radius:6px;padding:14px 14px 18px;box-shadow:6px 8px 22px var(--shadow);
@@ -144,6 +145,8 @@
   body.admin .adminnote.show{display:block;}
 
   footer{text-align:center;margin-top:46px;font-size:12px;color:var(--ink-soft);opacity:.75;}
+  .loginlink{display:inline-block;margin-top:12px;color:var(--teal);font-weight:700;font-size:13px;
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:1;}
 </style>
 </head>
 <body>
@@ -166,7 +169,7 @@
 
   <div class="adminnote" id="adminNote"></div>
   <div class="feed" id="feed"></div>
-  <footer>Built with love &amp; mild suspicion · Where Is Zorda?</footer>
+  <footer>Built with love &amp; mild suspicion · Where Is Zorda?<br><a class="loginlink" id="loginLink">Zorda HQ login →</a></footer>
 </div>
 
 <button class="fab" id="fab" aria-label="New sighting">📸</button>
@@ -388,6 +391,7 @@ function updateAuthUI(){
   document.body.classList.toggle("admin",isAdmin);
   adminbar.classList.toggle("show",isAdmin);
   demoSwitch.classList.toggle("on",demoMode);
+  const ll=document.getElementById("loginLink"); if(ll) ll.style.display=isAdmin?"none":"inline-block";
   if(isAdmin && !CONFIGURED){
     adminNote.classList.add("show");
     adminNote.innerHTML="📱 <b>This device only.</b> Posts are saved just on this phone until Supabase is connected. Add your keys in <b>index.html</b> to make the feed shared across everyone.";
@@ -396,6 +400,7 @@ function updateAuthUI(){
 demoSwitch.onclick=()=>{ demoMode=!demoMode; localStorage.setItem("zorda_demo",demoMode?"1":"0"); updateAuthUI(); render(); };
 document.getElementById("logoutBtn").onclick=()=>{ isAdmin=false; localStorage.removeItem("zorda_admin"); updateAuthUI(); render(); };
 fab.onclick=()=> isAdmin ? composerView() : loginView();
+document.getElementById("loginLink").onclick=loginView;
 
 updateAuthUI();
 render();
