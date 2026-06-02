@@ -98,6 +98,8 @@
   .ctext{color:var(--ink);}
   .ctime{color:var(--ink-soft);font-size:11.5px;font-weight:600;}
   .commented{font-size:13px;font-weight:700;color:var(--teal);padding:4px 2px;}
+  .cdel{border:none;background:none;cursor:pointer;font-size:13px;opacity:.5;padding:0 2px;line-height:1;margin-left:auto;}
+  .cdel:active{opacity:1;transform:scale(.9);}
   .cempty{font-size:13px;color:var(--ink-soft);font-style:italic;margin-bottom:10px;}
   .addc{display:flex;flex-direction:column;gap:8px;}
   .addc input{width:100%;padding:11px 13px;font-size:15px;font-family:inherit;color:var(--ink);
@@ -362,7 +364,18 @@ async function addComment(id,name,body){
   const c={id:"c"+Date.now(),post_id:id,name:name||null,body,device_id:deviceId(),created_at:new Date().toISOString()};
   (cm[id]=cm[id]||[]).push(c); localStorage.setItem("zorda_comments",JSON.stringify(cm)); return c;
 }
-function commentHTML(c){return `<div class="citem"><div class="chead"><b>${esc(c.name||"Anonymous")}</b><span class="ctime">${timeAgo(c.created_at)}</span></div><div class="ctext">${esc(c.body)}</div></div>`;}
+async function deleteComment(cid){
+  if(CONFIGURED){ const {error}=await sb.from("comments").delete().eq("id",cid); if(error) throw error; }
+  else{ const cm=JSON.parse(localStorage.getItem("zorda_comments")||"{}"); for(const k in cm){cm[k]=cm[k].filter(x=>String(x.id)!==String(cid));} localStorage.setItem("zorda_comments",JSON.stringify(cm)); }
+}
+function commentHTML(c){
+  const mine=c.device_id && c.device_id===deviceId();
+  return `<div class="citem" data-cid="${esc(c.id)}" data-pid="${esc(c.post_id)}"><div class="chead"><b>${esc(c.name||"Anonymous")}</b><span class="ctime">${timeAgo(c.created_at)}</span>${mine?`<button class="cdel" title="Delete comment">🗑</button>`:""}</div><div class="ctext">${esc(c.body)}</div></div>`;
+}
+function addcHTML(id){return `<div class="addc">
+  <div class="asname">Posting as <b class="whoami">${esc(getName()||"someone")}</b> <button class="changename" type="button">change</button></div>
+  <div class="addrow"><input class="cbody" placeholder="Add a comment…" maxlength="300" autocomplete="off"><button class="csend" data-id="${esc(id)}">Post</button></div>
+</div>`;}
 
 // ---------- render ----------
 function postHTML(p,eng,canDelete){
@@ -382,10 +395,7 @@ function postHTML(p,eng,canDelete){
       ${hc?`<div class="likedby">${likedByHTML(eng.heartNames[p.id],hc,p.id)}</div>`:""}
       <div class="cwrap" id="cw-${esc(p.id)}" hidden>
         <div class="clist" id="cl-${esc(p.id)}">${cs.length?cs.map(commentHTML).join(""):'<div class="cempty">No comments yet — say hi 👋</div>'}</div>
-        ${eng.commented[p.id]?``:`<div class="addc">
-          <div class="asname">Posting as <b class="whoami">${esc(getName()||"someone")}</b> <button class="changename" type="button">change</button></div>
-          <div class="addrow"><input class="cbody" placeholder="Add a comment…" maxlength="300" autocomplete="off"><button class="csend" data-id="${esc(p.id)}">Post</button></div>
-        </div>`}
+        ${eng.commented[p.id]?``:addcHTML(p.id)}
       </div>
     </article>`;
 }
@@ -439,6 +449,20 @@ function wireEngagement(){
   });
   feedEl.querySelectorAll(".changename").forEach(b=>{ b.onclick=()=>ensureName(true); });
   feedEl.querySelectorAll(".others").forEach(b=>{ b.onclick=()=>openHeartList(b.dataset.id); });
+  feedEl.querySelectorAll(".cdel").forEach(b=>{
+    b.onclick=async()=>{
+      if(!confirm("Delete your comment?")) return;
+      const item=b.closest(".citem"), cid=item.dataset.cid, pid=item.dataset.pid;
+      try{
+        await deleteComment(cid);
+        const post=item.closest(".post"); item.remove();
+        const cc=post.querySelector(".ccount"); if(cc) cc.textContent=Math.max(0,parseInt(cc.textContent||"0",10)-1);
+        const list=post.querySelector(".clist"); if(list && !list.querySelector(".citem")) list.innerHTML='<div class="cempty">No comments yet — say hi 👋</div>';
+        const wrap=document.getElementById("cw-"+pid); if(wrap && !wrap.querySelector(".addc")) wrap.insertAdjacentHTML("beforeend",addcHTML(pid));
+        wireEngagement();
+      }catch(e){ alert("Couldn't delete: "+(e.message||e)); }
+    };
+  });
   feedEl.querySelectorAll(".csend").forEach(b=>{
     b.onclick=async()=>{
       const id=b.dataset.id, wrap=document.getElementById("cw-"+id), bodyEl=wrap.querySelector(".cbody");
