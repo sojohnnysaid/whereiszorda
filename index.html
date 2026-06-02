@@ -91,8 +91,10 @@
   .cwrap{margin:12px 4px 0;border-top:1.5px dashed #e0d0ac;padding-top:12px;}
   .clist{display:flex;flex-direction:column;gap:9px;margin-bottom:10px;}
   .citem{font-size:14px;line-height:1.45;color:var(--ink);}
-  .citem b{color:var(--tomato-dark);font-weight:700;margin-right:3px;}
-  .ctime{color:var(--ink-soft);font-size:11.5px;font-weight:600;margin-left:5px;}
+  .chead{display:flex;align-items:baseline;gap:8px;margin-bottom:1px;}
+  .citem b{color:var(--tomato-dark);font-weight:700;}
+  .ctext{color:var(--ink);}
+  .ctime{color:var(--ink-soft);font-size:11.5px;font-weight:600;}
   .cempty{font-size:13px;color:var(--ink-soft);font-style:italic;margin-bottom:10px;}
   .addc{display:flex;flex-direction:column;gap:8px;}
   .addc input{width:100%;padding:11px 13px;font-size:15px;font-family:inherit;color:var(--ink);
@@ -357,7 +359,7 @@ async function addComment(id,name,body){
   const c={id:"c"+Date.now(),post_id:id,name:name||null,body,created_at:new Date().toISOString()};
   (cm[id]=cm[id]||[]).push(c); localStorage.setItem("zorda_comments",JSON.stringify(cm)); return c;
 }
-function commentHTML(c){return `<div class="citem"><b>${esc(c.name||"Anonymous")}</b>${esc(c.body)}<span class="ctime">${timeAgo(c.created_at)}</span></div>`;}
+function commentHTML(c){return `<div class="citem"><div class="chead"><b>${esc(c.name||"Anonymous")}</b><span class="ctime">${timeAgo(c.created_at)}</span></div><div class="ctext">${esc(c.body)}</div></div>`;}
 
 // ---------- render ----------
 function postHTML(p,eng,canDelete){
