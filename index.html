@@ -97,6 +97,7 @@
   .citem b{color:var(--tomato-dark);font-weight:700;}
   .ctext{color:var(--ink);}
   .ctime{color:var(--ink-soft);font-size:11.5px;font-weight:600;}
+  .commented{font-size:13px;font-weight:700;color:var(--teal);padding:4px 2px;}
   .cempty{font-size:13px;color:var(--ink-soft);font-style:italic;margin-bottom:10px;}
   .addc{display:flex;flex-direction:column;gap:8px;}
   .addc input{width:100%;padding:11px 13px;font-size:15px;font-family:inherit;color:var(--ink);
@@ -322,8 +323,8 @@ function openHeartList(id){
 // ---------- hearts & comments (public; signed with your name) ----------
 
 async function getEngagement(ids){
-  const res={hearts:{},hearted:{},heartNames:{},comments:{}};
-  ids.forEach(id=>{res.hearts[id]=0;res.hearted[id]=false;res.heartNames[id]=[];res.comments[id]=[];});
+  const res={hearts:{},hearted:{},heartNames:{},comments:{},commented:{}};
+  ids.forEach(id=>{res.hearts[id]=0;res.hearted[id]=false;res.heartNames[id]=[];res.comments[id]=[];res.commented[id]=false;});
   if(!ids.length) return res;
   if(CONFIGURED){
     const dev=deviceId();
@@ -332,12 +333,12 @@ async function getEngagement(ids){
       sb.from("comments").select("*").in("post_id",ids).order("created_at",{ascending:true})
     ]);
     (h||[]).forEach(r=>{res.hearts[r.post_id]=(res.hearts[r.post_id]||0)+1; if(r.name)res.heartNames[r.post_id].push(r.name); if(r.device_id===dev)res.hearted[r.post_id]=true;});
-    (c||[]).forEach(r=>{(res.comments[r.post_id]=res.comments[r.post_id]||[]).push(r);});
+    (c||[]).forEach(r=>{(res.comments[r.post_id]=res.comments[r.post_id]||[]).push(r); if(r.device_id===dev)res.commented[r.post_id]=true;});
   }else{
     const hc=JSON.parse(localStorage.getItem("zorda_hearts")||"{}");
     const hd=JSON.parse(localStorage.getItem("zorda_hearted")||"{}");
     const cm=JSON.parse(localStorage.getItem("zorda_comments")||"{}");
-    ids.forEach(id=>{res.hearts[id]=hc[id]||0;res.hearted[id]=!!hd[id];res.comments[id]=cm[id]||[];});
+    ids.forEach(id=>{res.hearts[id]=hc[id]||0;res.hearted[id]=!!hd[id];res.comments[id]=cm[id]||[];res.commented[id]=(cm[id]||[]).length>0;});
   }
   return res;
 }
@@ -354,11 +355,11 @@ async function toggleHeart(id,on,name){
 }
 async function addComment(id,name,body){
   if(CONFIGURED){
-    const {data,error}=await sb.from("comments").insert({post_id:id,name:name||null,body}).select();
+    const {data,error}=await sb.from("comments").insert({post_id:id,name:name||null,body,device_id:deviceId()}).select();
     if(error) throw error; return data[0];
   }
   const cm=JSON.parse(localStorage.getItem("zorda_comments")||"{}");
-  const c={id:"c"+Date.now(),post_id:id,name:name||null,body,created_at:new Date().toISOString()};
+  const c={id:"c"+Date.now(),post_id:id,name:name||null,body,device_id:deviceId(),created_at:new Date().toISOString()};
   (cm[id]=cm[id]||[]).push(c); localStorage.setItem("zorda_comments",JSON.stringify(cm)); return c;
 }
 function commentHTML(c){return `<div class="citem"><div class="chead"><b>${esc(c.name||"Anonymous")}</b><span class="ctime">${timeAgo(c.created_at)}</span></div><div class="ctext">${esc(c.body)}</div></div>`;}
@@ -381,10 +382,10 @@ function postHTML(p,eng,canDelete){
       ${hc?`<div class="likedby">${likedByHTML(eng.heartNames[p.id],hc,p.id)}</div>`:""}
       <div class="cwrap" id="cw-${esc(p.id)}" hidden>
         <div class="clist" id="cl-${esc(p.id)}">${cs.length?cs.map(commentHTML).join(""):'<div class="cempty">No comments yet — say hi 👋</div>'}</div>
-        <div class="addc">
+        ${eng.commented[p.id]?`<div class="commented">✓ You've left a comment on this one</div>`:`<div class="addc">
           <div class="asname">Posting as <b class="whoami">${esc(getName()||"someone")}</b> <button class="changename" type="button">change</button></div>
           <div class="addrow"><input class="cbody" placeholder="Add a comment…" maxlength="300" autocomplete="off"><button class="csend" data-id="${esc(p.id)}">Post</button></div>
-        </div>
+        </div>`}
       </div>
     </article>`;
 }
@@ -449,10 +450,14 @@ function wireEngagement(){
         const list=document.getElementById("cl-"+id);
         const empty=list.querySelector(".cempty"); if(empty) empty.remove();
         list.insertAdjacentHTML("beforeend",commentHTML(c));
-        bodyEl.value="";
         const cc=wrap.closest(".post").querySelector(".ccount"); if(cc) cc.textContent=(parseInt(cc.textContent||"0",10)+1);
-      }catch(e){ alert("Couldn't post comment: "+(e.message||e)); }
-      b.disabled=false;
+        const addc=wrap.querySelector(".addc"); if(addc) addc.outerHTML=`<div class="commented">✓ You've left a comment on this one</div>`;
+      }catch(e){
+        const dup=(e&&(e.code==="23505"||/duplicate|unique/i.test(e.message||"")));
+        if(dup){
+          const addc=wrap.querySelector(".addc"); if(addc) addc.outerHTML=`<div class="commented">✓ You've already commented on this one</div>`;
+        }else{ alert("Couldn't post comment: "+(e.message||e)); b.disabled=false; }
+      }
     };
   });
 }
