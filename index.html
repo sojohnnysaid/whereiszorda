@@ -172,6 +172,12 @@
   footer{text-align:center;margin-top:46px;font-size:12px;color:var(--ink-soft);opacity:.75;}
   .loginlink{display:inline-block;margin-top:12px;color:var(--teal);font-weight:700;font-size:13px;
     text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:1;}
+  .camlink{display:inline-block;margin-top:12px;font-size:16px;cursor:pointer;text-decoration:none;vertical-align:middle;}
+  .showmore{display:block;margin:6px auto 0;background:var(--card);color:var(--ink);font-family:inherit;
+    font-weight:700;font-size:15px;border:2px solid #d8c8a8;border-radius:14px;padding:13px 26px;cursor:pointer;
+    box-shadow:4px 5px 0 var(--shadow);transition:transform .1s;}
+  .showmore:active{transform:translateY(2px);}
+  .showmore:disabled{opacity:.6;}
 </style>
 </head>
 <body>
@@ -194,7 +200,7 @@
 
   <div class="adminnote" id="adminNote"></div>
   <div class="feed" id="feed"></div>
-  <footer>Built with love &amp; mild suspicion · Where Is Zorda?<br><a class="loginlink" id="loginLink">Zorda HQ login →</a></footer>
+  <footer>Built with love &amp; mild suspicion · Where Is Zorda?<br><a class="camlink" id="camLink" title="Post a sighting">📸</a> <a class="loginlink" id="loginLink">Zorda HQ login →</a></footer>
 </div>
 
 <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
@@ -226,13 +232,15 @@ function esc(t){const d=document.createElement("div");d.textContent=t??"";return
 function localPosts(){try{return JSON.parse(localStorage.getItem("zorda_posts")||"[]");}catch{return[];}}
 function saveLocal(arr){localStorage.setItem("zorda_posts",JSON.stringify(arr));}
 
-async function getPosts(){
+const PAGE=5;
+let loadedCount=0, allLoaded=false;
+async function fetchPostsPage(offset){
   if(CONFIGURED){
-    const {data,error}=await sb.from("posts").select("*").order("created_at",{ascending:false}).limit(100);
-    if(error){console.error(error);return[];}
+    const {data,error}=await sb.from("posts").select("*").order("created_at",{ascending:false}).range(offset,offset+PAGE-1);
+    if(error){console.error(error);return [];}
     return data||[];
   }
-  return localPosts().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  return localPosts().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(offset,offset+PAGE);
 }
 
 async function addPost({location,message,geo,dataUrl}){
@@ -345,20 +353,9 @@ async function addComment(id,name,body){
 function commentHTML(c){return `<div class="citem"><b>${esc(c.name||"Anonymous")}</b>${esc(c.body)}<span class="ctime">${timeAgo(c.created_at)}</span></div>`;}
 
 // ---------- render ----------
-async function render(){
-  const posts=await getPosts();
-  if(!posts.length){
-    feedEl.innerHTML=`<div class="empty"><div class="big">No sign of him.</div>${isAdmin?"Tap 📸 to log the first sighting.":"No confirmed sightings yet."}</div>`;
-    lastSeen.textContent="📍 No confirmed sightings yet";
-    return;
-  }
-  lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
-  const eng=await getEngagement(posts.map(p=>p.id));
-  heartNamesById=eng.heartNames;
-  const canDelete=isAdmin;
-  feedEl.innerHTML=posts.map(p=>{
-    const hc=eng.hearts[p.id]||0, hd=eng.hearted[p.id], cs=eng.comments[p.id]||[];
-    return `
+function postHTML(p,eng,canDelete){
+  const hc=eng.hearts[p.id]||0, hd=eng.hearted[p.id], cs=eng.comments[p.id]||[];
+  return `
     <article class="post">
       <span class="pin"></span>
       <div class="photo-wrap"><img class="photo" src="${esc(p.image_url)}" alt="Zorda sighting" loading="lazy"></div>
@@ -378,9 +375,39 @@ async function render(){
           <div class="addrow"><input class="cbody" placeholder="Add a comment…" maxlength="300" autocomplete="off"><button class="csend" data-id="${esc(p.id)}">Post</button></div>
         </div>
       </div>
-    </article>`;}).join("");
-  wireEngagement();
-  if(canDelete) feedEl.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("Delete this sighting?"))deletePost(b.dataset.id);});
+    </article>`;
+}
+const moreBtnHTML=`<button class="showmore" id="showMore">Show more sightings ↓</button>`;
+function wireDeletes(canDelete){ if(canDelete) feedEl.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("Delete this sighting?"))deletePost(b.dataset.id);}); }
+function wireShowMore(){ const b=document.getElementById("showMore"); if(b) b.onclick=()=>{b.disabled=true;b.textContent="Loading…";loadMore();}; }
+
+async function render(){
+  loadedCount=0; allLoaded=false;
+  const posts=await fetchPostsPage(0);
+  if(!posts.length){
+    feedEl.innerHTML=`<div class="empty"><div class="big">No sign of him.</div>${isAdmin?"Tap 📸 New to log the first sighting.":"No confirmed sightings yet."}</div>`;
+    lastSeen.textContent="📍 No confirmed sightings yet";
+    return;
+  }
+  loadedCount=posts.length; allLoaded=posts.length<PAGE;
+  lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
+  const eng=await getEngagement(posts.map(p=>p.id));
+  heartNamesById=eng.heartNames;
+  const canDelete=isAdmin;
+  feedEl.innerHTML=posts.map(p=>postHTML(p,eng,canDelete)).join("")+(allLoaded?"":moreBtnHTML);
+  wireEngagement(); wireDeletes(canDelete); wireShowMore();
+}
+
+async function loadMore(){
+  const posts=await fetchPostsPage(loadedCount);
+  loadedCount+=posts.length;
+  if(posts.length<PAGE) allLoaded=true;
+  const eng=await getEngagement(posts.map(p=>p.id));
+  Object.assign(heartNamesById,eng.heartNames);
+  const canDelete=isAdmin;
+  const sm=document.getElementById("showMore"); if(sm) sm.remove();
+  feedEl.insertAdjacentHTML("beforeend", posts.map(p=>postHTML(p,eng,canDelete)).join("")+(allLoaded?"":moreBtnHTML));
+  wireEngagement(); wireDeletes(canDelete); wireShowMore();
 }
 
 function wireEngagement(){
@@ -552,6 +579,7 @@ function updateAuthUI(){
 document.getElementById("logoutBtn").onclick=()=>{ isAdmin=false; localStorage.removeItem("zorda_admin"); updateAuthUI(); render(); };
 document.getElementById("newPostBtn").onclick=composerView;
 document.getElementById("loginLink").onclick=loginView;
+document.getElementById("camLink").onclick=()=> isAdmin ? composerView() : loginView();
 
 updateAuthUI();
 render();
