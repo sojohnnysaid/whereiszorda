@@ -169,10 +169,13 @@
     border:1.5px solid #d99a1f;color:#5b4307;border-radius:12px;padding:10px 13px;display:none;}
   body.admin .adminnote.show{display:block;}
 
-  footer{text-align:center;margin-top:46px;font-size:12px;color:var(--ink-soft);opacity:.75;}
-  .loginlink{display:inline-block;margin-top:12px;color:var(--teal);font-weight:700;font-size:13px;
-    text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:1;}
-  .camlink{display:inline-block;margin-top:12px;font-size:16px;cursor:pointer;text-decoration:none;vertical-align:middle;}
+  footer{margin-top:46px;font-size:12px;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:13px;text-align:center;}
+  .ftxt{opacity:.75;}
+  .loginlink{color:var(--teal);font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;}
+  .camlink{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:25px;cursor:pointer;text-decoration:none;background:var(--card);border:2px solid #d8c8a8;
+    box-shadow:3px 4px 0 var(--shadow);transition:transform .12s;}
+  .camlink:active{transform:scale(.92);}
   .showmore{display:block;margin:6px auto 0;background:var(--card);color:var(--ink);font-family:inherit;
     font-weight:700;font-size:15px;border:2px solid #d8c8a8;border-radius:14px;padding:13px 26px;cursor:pointer;
     box-shadow:4px 5px 0 var(--shadow);transition:transform .1s;}
@@ -200,7 +203,11 @@
 
   <div class="adminnote" id="adminNote"></div>
   <div class="feed" id="feed"></div>
-  <footer>Built with love &amp; mild suspicion · Where Is Zorda?<br><a class="camlink" id="camLink" title="Post a sighting">📸</a> <a class="loginlink" id="loginLink">Zorda HQ login →</a></footer>
+  <footer>
+    <span class="ftxt">Built with love &amp; mild suspicion · Where Is Zorda?</span>
+    <a class="camlink" id="camLink" title="Post a sighting">📸</a>
+    <a class="loginlink" id="loginLink">Zorda HQ login →</a>
+  </footer>
 </div>
 
 <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
