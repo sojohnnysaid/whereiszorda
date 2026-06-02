@@ -57,11 +57,13 @@
     font-size:clamp(48px,15vw,82px);margin:14px 0 6px;}
   h1 .is{color:var(--tomato);font-style:italic;display:inline-block;transform:rotate(-3deg);}
   .sub{font-size:15px;color:var(--ink-soft);max-width:330px;margin:0 auto;}
-  .lastseen{display:inline-block;margin:26px auto 0;max-width:100%;font-size:13px;font-weight:600;
-    color:var(--teal);background:rgba(31,122,110,.1);padding:9px 16px;border-radius:16px;line-height:1.5;
-    text-align:center;white-space:normal;overflow-wrap:anywhere;border:1.5px dashed rgba(31,122,110,.45);}
-  .lastseen b{color:var(--ink);font-weight:700;}
-  .lastseen .ago{display:inline-block;margin-top:3px;opacity:.85;}
+  .lastseen{display:flex;flex-direction:column;align-items:center;gap:4px;margin:30px auto 0;max-width:100%;}
+  .ls-label{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--tomato-dark);}
+  .ls-dot{width:8px;height:8px;border-radius:50%;background:var(--tomato);animation:pulse 1.8s infinite;}
+  .ls-loc{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(22px,6.5vw,30px);
+    letter-spacing:-.015em;color:var(--ink);line-height:1.08;max-width:340px;overflow-wrap:anywhere;}
+  .ls-time{font-size:13px;font-weight:600;color:var(--ink-soft);}
 
   .feed{display:flex;flex-direction:column;gap:34px;margin-top:46px;}
   .post{background:var(--card);border-radius:6px;padding:14px 14px 18px;box-shadow:6px 8px 22px var(--shadow);
@@ -199,7 +201,7 @@
   <header>
     <h1>Where <span class="is">is</span><br>Zorda?</h1>
     <p class="sub">The official, unofficial tracker for the whereabouts of one Chris Zorda. Updated whenever he resurfaces.</p>
-    <div class="lastseen" id="lastSeen">📍 No confirmed sightings yet</div>
+    <div class="lastseen" id="lastSeen"><span class="ls-label">No sightings yet</span></div>
   </header>
 
   <div class="adminnote" id="adminNote"></div>
@@ -395,11 +397,11 @@ async function render(){
   const posts=await fetchPostsPage(0);
   if(!posts.length){
     feedEl.innerHTML=`<div class="empty"><div class="big">No sign of him.</div>${isAdmin?"Tap 📸 New to log the first sighting.":"No confirmed sightings yet."}</div>`;
-    lastSeen.textContent="📍 No confirmed sightings yet";
+    lastSeen.innerHTML=`<span class="ls-label">No sightings yet</span>`;
     return;
   }
   loadedCount=posts.length; allLoaded=posts.length<PAGE;
-  lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
+  lastSeen.innerHTML=`<span class="ls-label"><span class="ls-dot"></span>Last spotted at</span><span class="ls-loc">${esc(posts[0].location)}</span><span class="ls-time">${timeAgo(posts[0].created_at)}</span>`;
   const eng=await getEngagement(posts.map(p=>p.id));
   heartNamesById=eng.heartNames;
   const canDelete=isAdmin;
