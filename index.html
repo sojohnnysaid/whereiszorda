@@ -61,6 +61,7 @@
     color:var(--teal);background:rgba(31,122,110,.1);padding:9px 16px;border-radius:16px;line-height:1.5;
     text-align:center;white-space:normal;overflow-wrap:anywhere;border:1.5px dashed rgba(31,122,110,.45);}
   .lastseen b{color:var(--ink);font-weight:700;}
+  .lastseen .ago{display:inline-block;margin-top:3px;opacity:.85;}
 
   .feed{display:flex;flex-direction:column;gap:30px;margin-top:26px;}
   .post{background:var(--card);border-radius:6px;padding:14px 14px 18px;box-shadow:6px 8px 22px var(--shadow);
@@ -250,7 +251,7 @@ async function render(){
     lastSeen.textContent="📍 No confirmed sightings yet";
     return;
   }
-  lastSeen.innerHTML=`📍 Last seen <b style="color:var(--ink)">${esc(posts[0].location)}</b> · ${timeAgo(posts[0].created_at)}`;
+  lastSeen.innerHTML=`📍 Last seen <b>${esc(posts[0].location)}</b><br><span class="ago">${timeAgo(posts[0].created_at)}</span>`;
   const canDelete = isAdmin && !demoMode;
   feedEl.innerHTML=posts.map(p=>`
     <article class="post">
