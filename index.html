@@ -527,7 +527,8 @@ function composerView(){
     <button class="btn" id="capture" style="display:none;margin-top:10px;">Capture 📸</button>
     <button class="btn alt" id="switchCam" style="display:none;">🔄 Switch camera</button>
     <button class="btn ghost" id="uploadInstead">or choose a photo instead</button>
-    <input class="hidden-input" type="file" id="file" accept="image/*" capture="user">
+    <input class="hidden-input" type="file" id="file" accept="image/*">
+    <input class="hidden-input" type="file" id="fileCam" accept="image/*" capture="user">
 
     <label>Zorda is at…</label>
     <input type="text" id="loc" placeholder="e.g. a beach in Portugal" autocomplete="off">
@@ -553,7 +554,7 @@ function composerView(){
   }
   const camStart=document.getElementById("camStart"), cam=document.getElementById("cam"),
     preview=document.getElementById("preview"), captureBtn=document.getElementById("capture"),
-    switchBtn=document.getElementById("switchCam"), fileInput=document.getElementById("file"),
+    switchBtn=document.getElementById("switchCam"), fileInput=document.getElementById("file"), fileCamInput=document.getElementById("fileCam"),
     err=document.getElementById("err");
 
   async function startCam(){
@@ -566,7 +567,7 @@ function composerView(){
     }catch(e){
       // fallback: native file picker / camera
       err.textContent="Couldn't open the live camera — using your phone's camera app instead.";
-      fileInput.click();
+      fileCamInput.click();
     }
   }
   function shrink(srcImg){
@@ -585,15 +586,17 @@ function composerView(){
     cam.style.display="none"; stopCam(); captureBtn.style.display="none"; switchBtn.style.display="none";
     camStart.style.display="flex"; camStart.innerHTML="<span>🔁</span>Retake";
   };
-  document.getElementById("uploadInstead").onclick=()=>fileInput.click();
-  fileInput.onchange=()=>{
-    const f=fileInput.files[0]; if(!f)return;
+  function handleFile(input){
+    const f=input.files[0]; if(!f)return;
     const img=new Image();
     img.onload=()=>{ captured=shrink(img); preview.src=captured; preview.style.display="block";
       cam.style.display="none"; stopCam(); captureBtn.style.display="none"; switchBtn.style.display="none";
       camStart.style.display="flex"; camStart.innerHTML="<span>🔁</span>Retake"; URL.revokeObjectURL(img.src); };
     img.src=URL.createObjectURL(f);
-  };
+  }
+  document.getElementById("uploadInstead").onclick=()=>fileInput.click();
+  fileInput.onchange=()=>handleFile(fileInput);
+  fileCamInput.onchange=()=>handleFile(fileCamInput);
   document.getElementById("cancel").onclick=closeSheet;
   document.getElementById("post").onclick=async()=>{
     const location=document.getElementById("loc").value.trim();
